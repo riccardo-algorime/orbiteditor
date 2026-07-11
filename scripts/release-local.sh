@@ -42,16 +42,17 @@ release_darwin() {
 case "$PLATFORM" in
 	darwin-arm64) release_darwin arm64 ;;
 	darwin-x64) release_darwin x64 ;;
-	win32-x64)
+	win32-x64|win32-arm64)
+		local arch="${PLATFORM#win32-}"
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-build-with-mangling
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-non-native-extensions-build
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-extension-media-build
 		npm run buildreact:prod
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- minify-vscode
-		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-min-ci
-		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-inno-updater
-		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-system-setup
-		mv .build/win32-x64/system-setup/VSCodeSetup.exe "Orbit-${VERSION}-win32-x64-setup.exe"
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- "vscode-win32-${arch}-min-ci"
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- "vscode-win32-${arch}-inno-updater"
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- "vscode-win32-${arch}-system-setup"
+		mv ".build/win32-${arch}/system-setup/VSCodeSetup.exe" "Orbit-${VERSION}-win32-${arch}-setup.exe"
 		;;
 	linux-x64)
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-linux-x64-min
@@ -60,7 +61,7 @@ case "$PLATFORM" in
 		;;
 	*)
 		echo "Unknown platform: $PLATFORM"
-		echo "Supported: darwin-arm64, darwin-x64, win32-x64, linux-x64"
+		echo "Supported: darwin-arm64, darwin-x64, win32-x64, win32-arm64, linux-x64"
 		exit 1
 		;;
 esac
@@ -71,6 +72,7 @@ case "$PLATFORM" in
 	darwin-arm64) ASSET_ARGS+=(--asset "darwin-arm64=Orbit-${VERSION}-darwin-arm64.dmg") ;;
 	darwin-x64) ASSET_ARGS+=(--asset "darwin-x64=Orbit-${VERSION}-darwin-x64.dmg") ;;
 	win32-x64) ASSET_ARGS+=(--asset "win32-x64=Orbit-${VERSION}-win32-x64-setup.exe") ;;
+	win32-arm64) ASSET_ARGS+=(--asset "win32-arm64=Orbit-${VERSION}-win32-arm64-setup.exe") ;;
 	linux-x64) ASSET_ARGS+=(--asset "linux-x64=Orbit-${VERSION}-linux-x64.AppImage") ;;
 esac
 node scripts/update-latest-json.js "${ASSET_ARGS[@]}"
