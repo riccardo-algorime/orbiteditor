@@ -20,6 +20,25 @@ if [[ -z "$VERSION" ]]; then
 	VERSION="$(node -p "require('./product.json').orbitVersion")"
 fi
 
+# Keep package.json version aligned with orbitVersion (used by Windows installers and embedded app metadata)
+node <<NODE
+const fs = require('fs');
+const pkgPath = 'package.json';
+const product = JSON.parse(fs.readFileSync('product.json', 'utf8'));
+const target = '${VERSION}';
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+if (pkg.version !== target) {
+	pkg.version = target;
+	fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+	console.log('Synced package.json version → ' + target);
+}
+if (product.orbitVersion !== target) {
+	product.orbitVersion = target;
+	fs.writeFileSync('product.json', JSON.stringify(product, null, '\t') + '\n');
+	console.log('Synced product.json orbitVersion → ' + target);
+}
+NODE
+
 TAG="v${VERSION#v}"
 PLATFORM="${2:-darwin-arm64}"
 
