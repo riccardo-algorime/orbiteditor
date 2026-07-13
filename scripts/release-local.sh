@@ -66,6 +66,8 @@ case "$PLATFORM" in
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-build-with-mangling
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-non-native-extensions-build
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-extension-media-build
+		npm run buildreact
+		NODE_OPTIONS="--max-old-space-size=8192" npm run compile-client
 		npm run buildreact:prod
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- minify-vscode
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- "vscode-win32-${arch}-min-ci"
