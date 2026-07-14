@@ -13,6 +13,8 @@ import { URI } from '../../../../../../../base/common/uri.js';
 import { ChatMessage, StagingSelectionItem } from '../../../../common/chatThreadServiceTypes.js';
 import { isFeatureNameDisabled } from '../../../../common/orbitSettingsTypes.js';
 import { isABuiltinToolName } from '../../../../common/prompt/prompts.js';
+import { CHAT_USER_PROMPT_MAX_CHARS, isChatPromptNearLimit, validateChatPromptLength } from '../../../../common/chatInputLimits.js';
+import { WarningBox } from '../orbit-settings-tsx/WarningBox.js';
 
 import { TextAreaFns, VoidInputBox2 } from '../util/inputs.js';
 import { focusInConnectedWindow, downscaleImageDataUrl } from '../util/helpers.js';
@@ -156,9 +158,15 @@ export const SidebarChat = () => {
 
 	// state of current message
 	const initVal = ''
+	const [promptText, setPromptText] = useState(initVal)
+	const [submitError, setSubmitError] = useState<string | null>(null)
 	const [instructionsAreEmpty, setInstructionsAreEmpty] = useState(!initVal)
 
-	const isDisabled = instructionsAreEmpty || !!isFeatureNameDisabled('Chat', settingsState)
+	const promptLengthCheck = useMemo(() => validateChatPromptLength(promptText), [promptText])
+	const isPromptOverLimit = !promptLengthCheck.ok
+	const isPromptNearLimit = isChatPromptNearLimit(promptText)
+
+	const isDisabled = instructionsAreEmpty || !!isFeatureNameDisabled('Chat', settingsState) || isPromptOverLimit
 
 	const sidebarRef = useRef<HTMLDivElement>(null)
 	const scrollContainerRef = useRef<HTMLDivElement | null>(null)
@@ -219,16 +227,25 @@ export const SidebarChat = () => {
 		// snapshot rather than falling back to whatever is staged when it later drains.
 		const selectionsSnapshot = chatThreadsService.state.allThreads[threadId]?.state.stagingSelections ?? []
 
-		try {
-			await chatThreadsService.addUserMessageAndStreamResponse({ userMessage, _chatSelections: selectionsSnapshot, _images: imagesToSend.length > 0 ? imagesToSend : undefined, threadId })
-		} catch (e) {
-			console.error('Error while sending message in chat:', e)
+		const promptCheck = validateChatPromptLength(userMessage)
+		if (!promptCheck.ok) {
+			setSubmitError(promptCheck.message)
+			return
 		}
 
-		setSelections([]) // clear staging
-		setImages([]) // clear images
-		textAreaFnsRef.current?.setValue('')
-		focusInConnectedWindow(textAreaRef.current) // focus input after submit (keeps Agents pop-out frontmost)
+		try {
+			await chatThreadsService.addUserMessageAndStreamResponse({ userMessage, _chatSelections: selectionsSnapshot, _images: imagesToSend.length > 0 ? imagesToSend : undefined, threadId })
+			setSubmitError(null)
+			setSelections([]) // clear staging
+			setImages([]) // clear images
+			setPromptText('')
+			textAreaFnsRef.current?.setValue('')
+			focusInConnectedWindow(textAreaRef.current) // focus input after submit (keeps Agents pop-out frontmost)
+		} catch (e) {
+			const message = e instanceof Error ? e.message : 'Error while sending message in chat.'
+			setSubmitError(message)
+			console.error('Error while sending message in chat:', e)
+		}
 
 	}, [chatThreadsService, isDisabled, textAreaRef, textAreaFnsRef, setSelections, settingsState, images])
 
@@ -299,7 +316,9 @@ export const SidebarChat = () => {
 
 	const onChangeText = useCallback((newStr: string) => {
 		setInstructionsAreEmpty(!newStr)
-	}, [setInstructionsAreEmpty])
+		setPromptText(newStr)
+		if (submitError) setSubmitError(null)
+	}, [submitError])
 	const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
 		if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
 			onSubmit()
@@ -474,6 +493,22 @@ export const SidebarChat = () => {
 			onDragLeave={dragHandlers.handleDragLeave}
 			onDrop={dragHandlers.handleDrop}
 		>
+			{(submitError || isPromptNearLimit) && (
+				<div className='mb-1.5'>
+					{submitError ? (
+						<WarningBox text={submitError} />
+					) : isPromptOverLimit ? (
+						<WarningBox text={!promptLengthCheck.ok ? promptLengthCheck.message : ''} />
+					) : (
+						<WarningBox text={`Approaching message limit (${promptText.length.toLocaleString()} / ${CHAT_USER_PROMPT_MAX_CHARS.toLocaleString()} characters).`} />
+					)}
+				</div>
+			)}
+			<div className='flex justify-end mb-0.5'>
+				<span className={`text-xs ${isPromptOverLimit ? 'text-void-warning' : isPromptNearLimit ? 'text-void-fg-3' : 'text-void-fg-4'}`}>
+					{promptText.length.toLocaleString()} / {CHAT_USER_PROMPT_MAX_CHARS.toLocaleString()}
+				</span>
+			</div>
 			<VoidInputBox2
 				isThreadComposer
 				enableAtToMention

@@ -25,7 +25,7 @@ PLATFORM="${2:-darwin-arm64}"
 
 echo "Orbit local release: version=${VERSION} tag=${TAG} platform=${PLATFORM}"
 
-npm run buildreact
+npm run buildreact:prod
 
 release_darwin() {
 	local arch="$1"
@@ -43,7 +43,13 @@ case "$PLATFORM" in
 	darwin-arm64) release_darwin arm64 ;;
 	darwin-x64) release_darwin x64 ;;
 	win32-x64)
-		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-min
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-build-with-mangling
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-non-native-extensions-build
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- compile-extension-media-build
+		npm run buildreact:prod
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- minify-vscode
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-min-ci
+		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-inno-updater
 		NODE_OPTIONS="--max-old-space-size=8192" npm run gulp -- vscode-win32-x64-system-setup
 		mv .build/win32-x64/system-setup/VSCodeSetup.exe "Orbit-${VERSION}-win32-x64-setup.exe"
 		;;
