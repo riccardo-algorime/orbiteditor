@@ -6,15 +6,8 @@
 import * as crypto from 'crypto';
 import { IOrbitUpdateManifest, orbitManifestSigningPayload } from '../common/orbitUpdateManifest.js';
 
-// Public key only — safe to ship in source. The matching private key is
-// held outside this repo (release CI secret) and is never committed; see
-// scripts/update-latest-json.js for the signing side. Without an
-// independent signature, the manifest's sha256 alone only proves the
-// binary matches what the manifest says — it doesn't prove the manifest
-// itself came from us, so anyone who can write to the GitHub repo (or a
-// MITM on the raw.githubusercontent.com fetch, absent that host's own TLS)
-// could otherwise publish a self-consistent malicious manifest+binary pair
-// that auto-installs.
+// Public key for the Windows release signing key (orbit-update-private.pem).
+// The private key is held outside this repo — see scripts/orbit-update-signing.ps1.
 const ORBIT_UPDATE_PUBLIC_KEY_BASE64 = 'BEgoJdWR0aEevZ/63UIS8n5uPQf61xcDGyIfG3/WpfI=';
 
 function toSpkiDer(rawPublicKey: Buffer): Buffer {
