@@ -15,7 +15,7 @@ import { IOrbitUpdateManifest, orbitManifestSigningPayload } from '../common/orb
 // MITM on the raw.githubusercontent.com fetch, absent that host's own TLS)
 // could otherwise publish a self-consistent malicious manifest+binary pair
 // that auto-installs.
-const ORBIT_UPDATE_PUBLIC_KEY_BASE64 = 'jfSv0VvIzLBrxXtfMaDdM8Di6JHv1P6xWbPnA11pxes=';
+const ORBIT_UPDATE_PUBLIC_KEY_BASE64 = 'BEgoJdWR0aEevZ/63UIS8n5uPQf61xcDGyIfG3/WpfI=';
 
 function toSpkiDer(rawPublicKey: Buffer): Buffer {
 	// Ed25519 SubjectPublicKeyInfo prefix for a raw 32-byte public key (RFC 8410).
