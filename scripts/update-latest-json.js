@@ -8,6 +8,8 @@
  *      --merge
  *
  *  --merge             Preserve existing platform entries not passed via --asset
+ *  --sign-existing     Re-sign update/latest.json in place (no --asset required;
+ *                      use to add a signature to an already-published manifest)
  *  --commit            Optional git commit SHA to record in the manifest
  *  --allow-unsigned    Skip Ed25519 signing (local/dev testing only — the app
  *                      refuses to auto-install an unsigned manifest)
@@ -92,6 +94,7 @@ function parseArgs(argv) {
 		tag: '',
 		commit: undefined,
 		merge: false,
+		signExisting: false,
 		allowUnsigned: false,
 		assets: {},
 	};
@@ -100,6 +103,8 @@ function parseArgs(argv) {
 		const arg = argv[i];
 		if (arg === '--merge') {
 			opts.merge = true;
+		} else if (arg === '--sign-existing') {
+			opts.signExisting = true;
 		} else if (arg === '--allow-unsigned') {
 			opts.allowUnsigned = true;
 		} else if (arg === '--version') {
@@ -138,10 +143,38 @@ function loadExistingManifest(manifestPath) {
 	return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 }
 
+function writeManifest(manifestPath, signedManifest) {
+	fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+	fs.writeFileSync(manifestPath, JSON.stringify(signedManifest, null, '\t') + '\n');
+	console.log(`Updated ${manifestPath}`);
+	console.log(JSON.stringify(signedManifest, null, 2));
+}
+
 function main() {
 	const opts = parseArgs(process.argv);
 	const root = process.cwd();
 	const manifestPath = path.join(root, 'update', 'latest.json');
+
+	if (opts.signExisting) {
+		const existing = loadExistingManifest(manifestPath);
+		if (!existing.version || !existing.assets || Object.keys(existing.assets).length === 0) {
+			throw new Error(`No manifest to sign at ${manifestPath}`);
+		}
+
+		const { signature: _ignored, ...unsigned } = existing;
+		const manifest = {
+			version: opts.version || unsigned.version,
+			releasedAt: unsigned.releasedAt ?? new Date().toISOString().slice(0, 10),
+			assets: unsigned.assets,
+		};
+		if (opts.commit ?? unsigned.commit) {
+			manifest.commit = opts.commit ?? unsigned.commit;
+		}
+
+		const signedManifest = signManifest(manifest, opts.allowUnsigned);
+		writeManifest(manifestPath, signedManifest);
+		return;
+	}
 
 	const existing = opts.merge ? loadExistingManifest(manifestPath) : { assets: {} };
 	const assets = { ...existing.assets };
@@ -177,11 +210,7 @@ function main() {
 	}
 
 	const signedManifest = signManifest(manifest, opts.allowUnsigned);
-
-	fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-	fs.writeFileSync(manifestPath, JSON.stringify(signedManifest, null, '\t') + '\n');
-	console.log(`Updated ${manifestPath}`);
-	console.log(JSON.stringify(signedManifest, null, 2));
+	writeManifest(manifestPath, signedManifest);
 }
 
 main();
